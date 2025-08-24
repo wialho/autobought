@@ -1,11 +1,15 @@
 # main.py
 
 import asyncio
+from contextlib import asynccontextmanager
 import os
 import uvicorn
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import Depends, FastAPI, BackgroundTasks
+from app import schemas
+from app import models
 from app.alembic_runner import run_migrations
-from app.db import Base, engine
+from app.db import engine, get_db
+from app.models import Base
 from app.schemas import TradingPlanCreate
 from app.models import TradingPlan
 from app.polygon_rest import start_rest_polling
@@ -13,45 +17,58 @@ from app.polygon_manager import start_websocket, register_ticker_callback, unreg
 from app.discord import send_discord_message
 from sqlalchemy.orm import Session
 
-app = FastAPI()
+from app.trading_logic import start_trading_for_plan
 
-@app.on_event("startup")
-async def startup():
-    run_migrations()
-    Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+        run_migrations()
+        # Base.metadata.create_all(bind=engine)
+        
+        yield
 
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/trading-plan")
-async def create_trading_plan(plan: TradingPlanCreate, background_tasks: BackgroundTasks):
-    db = Session(bind=engine)
-    db_plan = TradingPlan(
-        ticker=plan.ticker,
-        triggers=plan.triggers,
-        length_minutes=plan.length_minutes
+async def create_trading_plan(
+    plan_data: schemas.TradingPlanCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    plan = models.TradingPlan(
+        ticker=plan_data.ticker,
+        capital=plan_data.capital,
+        time_to_trade=plan_data.timeToTrade,
+        description=plan_data.description,
     )
-    db.add(db_plan)
-    db.commit()
-    db.refresh(db_plan)
+    db.add(plan)
+    db.flush()  # Get plan.id
 
-    await send_discord_message(f"🟢 Trading plan {db_plan.id} started for {db_plan.ticker}")
-
-    # Conditionally run background task
-    if os.getenv("POLYGON_API", "REST").upper() == "WEBSOCKET":
-        async def on_bar(bar):
-            # Do your trigger logic here
-            ...
-
-        await start_websocket()
-        register_ticker_callback(plan.ticker, on_bar, db_plan.id)
-        background_tasks.add_task(asyncio.sleep, plan.length_minutes * 60)
-        background_tasks.add_task(unregister_ticker_callbacks, db_plan.id)
-    else:
-        background_tasks.add_task(
-            start_rest_polling,
-            plan.ticker,
-            db_plan.id,
-            plan.triggers,
-            plan.length_minutes
+    for seq in plan_data.tradingPlan:
+        sequence = models.PlanSequence(
+            plan_id=plan.id,
+            repeat=seq.repeat,
+            description=seq.description,
         )
+        db.add(sequence)
+        db.flush()
 
-    return {"status": "started", "plan_id": db_plan.id}
+        for order in seq.orders:
+            trade_order = models.TradeOrder(
+                sequence_id=sequence.id,
+                price=order.price,
+                order_type=order.order_type,
+                volume=order.volume,
+                volume_type=order.volume_type,
+                reasoning=order.reasoning,
+            )
+            db.add(trade_order)
+
+    db.commit()
+
+    
+    await send_discord_message(f"🟢 Trading plan {plan.id} started for {plan.ticker}")
+
+    background_tasks.add_task(start_trading_for_plan, plan.id)
+
+    return {"status": "started", "plan_id": plan.id}
+    

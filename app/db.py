@@ -11,9 +11,6 @@ engine = create_engine(DATABASE_URL)
 # Create a configured session class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Optional base class for models (if needed here)
-Base = declarative_base()
-
 # Dependency to use in FastAPI routes
 def get_db():
     db = SessionLocal()

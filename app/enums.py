@@ -8,5 +8,11 @@ class OrderType(str, Enum):
     STOP_LOSS = "stop_loss"
 
 class VolumeType(str, Enum):
-    GREATER_THAN = "greaterthan"
-    LESS_THAN = "lessthan"
+    GREATER_THAN = "greater_than"
+    LESS_THAN = "less_than"
+    IGNORE = 'ignore'
+
+class TradeTime(str, Enum):
+    MONTH = 'month',
+    DAY = 'day',
+    HOUR = 'hour'

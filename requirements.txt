@@ -8,3 +8,5 @@ requests
 polygon-api-client
 alpaca-py
 alembic
+httpx
+websocket-client

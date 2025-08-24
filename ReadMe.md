@@ -18,3 +18,78 @@ This is a automated trading program that uses a trading plan to execute
 7. go to http://localhost:8000/docs#/ in a browser and use the api to enter trading plans
 
 ## Trading Plan
+
+Currently Autobought has one endpoint which accepts a json object (see example below)
+
+`ticker: string - ticker you want to trade`
+`capital: int - dollar amount you want to trade`
+`timeToTrade: string - this is an integer with an enum (month/day/hour)`
+`tradingPlan: TradingPlan[] - this is a list of trades to execute`
+
+Trading Plan Object
+`repeat: boolean - should trade repeat if conditions are met`
+`orders: Order[] - a list of orders to place`
+
+Order Object
+`price: double - price to buy or sell`
+`orderType: enum - type of buy or sell (limit_buy/limit_sell/market_buy/market_sell/stop_loss)`
+`volume: int - volume to trade on in millions`
+`volumeType: enum - type of volume trade (ignore/greater_than/less_than)`
+
+# Example (This example is a merger arbitrage)
+
+```
+ {
+  "ticker": "STAA",
+  "capital": 10000,
+  "timeToTrade": "3 month",
+  "tradingPlan": [
+    {
+      "repeat": false,
+      "orders": [
+        {
+          "price": 26.70,
+          "orderType": "limit_buy",
+          "volume": 374,
+          "volumeType": "ignore",
+        },
+        {
+          "price": 27.95,
+          "orderType": "limit_sell",
+          "volume": 374,
+          "volumeType": "ignore",
+        },
+        {
+          "price": 25.50,
+          "orderType": "stop_loss",
+          "volume": 374,
+          "volumeType": "ignore",
+        }
+      ]
+    },
+    {
+      "repeat": false,
+      "orders": [
+        {
+          "price": 26.30,
+          "orderType": "limit_buy",
+          "volume": 190,
+          "volumeType": "ignore",
+        },
+        {
+          "price": 27.90,
+          "orderType": "limit_sell",
+          "volume": 190,
+          "volumeType": "ignore",
+        },
+        {
+          "price": 24.00,
+          "orderType": "stop_loss",
+          "volume": 190,
+          "volumeType": "ignore",
+        }
+      ]
+    },
+  ],
+}
+```

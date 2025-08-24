@@ -9,6 +9,4 @@ from alembic import command
 
 def run_migrations():
     alembic_cfg = Config("alembic.ini")
-    alembic_cfg.set_main_option("sqlalchemy.url", os.getenv("DB_URL"))
-
     command.upgrade(alembic_cfg, "head")
